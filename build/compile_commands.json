@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/yaogcc/桌面/数据结构实验课/3-2哈夫曼树/build",
+  "command": "/usr/bin/g++  -isystem /usr/local/include/opencv4 -g -o CMakeFiles/test.dir/main.cpp.o -c /home/yaogcc/桌面/数据结构实验课/3-2哈夫曼树/main.cpp",
+  "file": "/home/yaogcc/桌面/数据结构实验课/3-2哈夫曼树/main.cpp",
+  "output": "CMakeFiles/test.dir/main.cpp.o"
+}
+]

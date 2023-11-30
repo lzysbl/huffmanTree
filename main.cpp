@@ -5,6 +5,7 @@
 #include <iosfwd>
 #include <bitset>
 #include <sstream>
+
 typedef struct HafuTree{
     int weight;
     float data;
@@ -12,6 +13,7 @@ typedef struct HafuTree{
     HafuTree* RightChild;
     HafuTree* Parent;
 }*HuffTree,HTNode;
+
 //创建哈夫曼树
 void createHafuTree(HuffTree &root){
     int m;
@@ -70,6 +72,7 @@ void createHafuTree(HuffTree &root){
     }
     root = &root[2*m-2];
 }
+
 //创建二叉树
 void createHafuTree_Noinput(HuffTree &root,std::vector<cv::Point2d> pixels){
     int m;
@@ -129,13 +132,7 @@ void createHafuTree_Noinput(HuffTree &root,std::vector<cv::Point2d> pixels){
     }
     root = &root[2*m-2];
 }
-void printHafuTree(HuffTree root){
-    if(root){
-        printHafuTree(root->LeftChild);
-        printHafuTree(root->RightChild);
-    }else{
-    }
-}
+
 //生成哈夫曼编码
 void generateHuffmanCodes(HuffTree root, std::string code, std::map<int, std::string>& codes) {
     if (root->LeftChild) {
@@ -148,6 +145,7 @@ void generateHuffmanCodes(HuffTree root, std::string code, std::map<int, std::st
         codes[root->data] = code;
     }
 }
+
 //画出哈夫曼树
 void DrawHafuNode(HafuTree *hafu,cv::Mat &img,cv::Point root,int linelength)
 {
@@ -171,6 +169,7 @@ void DrawHafuNode(HafuTree *hafu,cv::Mat &img,cv::Point root,int linelength)
         }
     }
 }
+
 //画出哈夫曼树
 void DrawHafuTree(HafuTree *T){ 
     cv::Mat img(1000,1000,CV_8UC3,cv::Scalar(255,255,255));
@@ -189,8 +188,8 @@ void DrawHafuTree(HafuTree *T){
     cv::imshow("hafuTree",img);
     cv::waitKey(1000);
 }
-//编码哈夫曼树
 
+//编码哈夫曼树
 void encodeHaffTree(HuffTree root, const std::string& inputstring, const std::string& path = "../encode.txt") {
     std::map<int, std::string> huffmanCodes;
     generateHuffmanCodes(root, "", huffmanCodes);
@@ -281,12 +280,10 @@ void imgCompression(std::string imgpath){
     std::string outputFile = imgpath+"_huffmanCodes.txt";
     std::ofstream output(outputFile);
     for (const auto& pair : huffmanCodes) {
-    // Convert binary string to integer
+    //转二进制
     int s = std::stoi(pair.second, nullptr, 2);
-
     // Convert integer to 16-bit binary string
     std::bitset<16> sss(s);
-
     // Save the result to the output file
     output << pair.first << ":" << sss.to_string() << std::endl;
 }
@@ -358,7 +355,6 @@ void imgDeCompression(const std::string& imgCompressionpath, const std::string& 
 int main(){
     HuffTree root;
     createHafuTree(root);
-    printHafuTree(root);
     DrawHafuTree(root);
     std::map<int, std::string> huffmanCodes;
     generateHuffmanCodes(root, "", huffmanCodes);
@@ -371,5 +367,4 @@ int main(){
     decodeHaffTree(root);
     imgCompression("../运行截图.png");
     imgDeCompression("../运行截图.png_compression.jpg","../运行截图.png_huffmanCodes.txt");
-    
 }
