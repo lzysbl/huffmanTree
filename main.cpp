@@ -8,12 +8,29 @@
 
 typedef struct HafuTree{
     int weight;
-    float data;
+    int data;
     HafuTree* LeftChild;
     HafuTree* RightChild;
     HafuTree* Parent;
 }*HuffTree,HTNode;
 
+void insert(HafuTree* node, const std::string& code, uchar data) {
+    if (code.empty()) {
+        node->data = data;
+    } else {
+        if (code[0] == '0') {
+            if (node->LeftChild == nullptr) {
+                node->LeftChild = new HafuTree();
+            }
+            insert(node->LeftChild, code.substr(1), data);
+        } else {
+            if (node->RightChild == nullptr) {
+                node->RightChild = new HafuTree();
+            }
+            insert(node->RightChild, code.substr(1), data);
+        }
+    }
+}
 //创建哈夫曼树
 void createHafuTree(HuffTree &root){
     int m;
@@ -77,6 +94,7 @@ void createHafuTree(HuffTree &root){
 void createHafuTree_Noinput(HuffTree &root,std::vector<cv::Point2d> pixels){
     int m;
     m = pixels.size();
+    std::cout<<"叶子节点的个数："<<m<<std::endl;
     root = new HTNode[2*m-1];
     //初始化叶子节点
     int i=0;
@@ -198,7 +216,6 @@ void encodeHaffTree(HuffTree root, const std::string& inputstring, const std::st
         std::cerr << "无法打开文件" << std::endl;
         return;
     }
-    
     //
     std::istringstream inputStream(inputstring);
     std::vector<int> numbers;
@@ -217,7 +234,6 @@ void encodeHaffTree(HuffTree root, const std::string& inputstring, const std::st
     }
     outputFile.close();
 }
-
 
 //译码哈夫曼树
 void decodeHaffTree(HuffTree root,std::string path1="../encode.txt",std::string path2="../decode.txt") {
@@ -247,73 +263,100 @@ void decodeHaffTree(HuffTree root,std::string path1="../encode.txt",std::string 
     }
     fclose(input);
 }
+
 //图像压缩
-void imgCompression(std::string imgpath){
+void imgCompression(std::string imgpath) {
     HafuTree *root;
-    //为了方便实现，将图像转换为灰度图像
-    cv::Mat img = cv::imread(imgpath,cv::IMREAD_GRAYSCALE);
-   // cv::cvtColor(img,img,cv::COLOR_BGR2GRAY);
+    // 为了方便实现，将图像转换为灰度图像
+    cv::Mat img = cv::imread(imgpath, cv::IMREAD_GRAYSCALE);
+    FILE* file = fopen((imgpath + "_Compress").c_str(), "wb");
     std::vector<cv::Point2d> pixels;
-    int realpixels[256]={0};
+    int realpixels[256] = {0};
     // 获取图像的行数和列数
     int rows = img.rows;
     int cols = img.cols;
     // 遍历图像的每个像素
-    for (int i = 0; i < rows; ++i){
-        for (int j = 0; j < cols; ++j){
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
             int pixel = img.at<uchar>(i, j);
             realpixels[pixel]++;
         }
     }
-    //将像素值存入set中
-    for(int i=0;i<255;i++){
-        if(realpixels[i]!=0){
-            pixels.push_back(cv::Point2d(i,realpixels[i]));
+    // 将像素值存入set中
+    for (int i = 0; i < 255; i++) {
+        if (realpixels[i] != 0) {
+            pixels.push_back(cv::Point2d(i, realpixels[i]));
         }
     }
     // 创建哈夫曼树
-    createHafuTree_Noinput(root,pixels);
-    //生成哈弗曼编码
+    createHafuTree_Noinput(root, pixels);
+    // 生成哈夫曼编码
     std::map<int, std::string> huffmanCodes;
     generateHuffmanCodes(root, "", huffmanCodes);
-    //保存哈夫曼编码
-    std::string outputFile = imgpath+"_huffmanCodes.txt";
+    // 保存哈夫曼编码
+    std::string outputFile = imgpath + "_huffmanCodes.txt";
     std::ofstream output(outputFile);
-    for (const auto& pair : huffmanCodes) {
-    //转二进制
-    int s = std::stoi(pair.second, nullptr, 2);
-    // Convert integer to 16-bit binary string
-    std::bitset<16> sss(s);
-    // Save the result to the output file
-    output << pair.first << ":" << sss.to_string() << std::endl;
-}
-
-    cv::Mat img_compression = img;
-    // 遍历图像的每个像素，将像素值替换为哈夫曼编码
-    for(int i=0;i<rows;i++){
-        for(int j=0;j<cols;j++){
-            int pixel = img.at<uchar>(i,j);
+    if (!output.is_open()) {
+        std::cerr << "Error opening Huffman codes file." << std::endl;
+        return;
+    }
+    for (const auto& pair : huffmanCodes){
+        output << pair.first << ":" << pair.second << std::endl;
+    }
+    // 创建一个字节缓冲区和一个计数器
+    unsigned char buffer = 0;
+    int bit_count = 0;
+    // 写入图像的行数和列数
+    fwrite(&rows, sizeof(rows), 1, file);
+    fwrite(&cols, sizeof(cols), 1, file);
+    fputc('\n', file);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            int pixel = img.at<uchar>(i, j);
             std::string huff = huffmanCodes[pixel];
-            // 将哈夫曼编码字符串转换为 std::bitset
-            std::bitset<16> binaryNumber(huffmanCodes[pixel]);  // 假设最大长度为32位
-            // 将二进制数转换为整数
-            int compressedValue = static_cast<int>(binaryNumber.to_ulong());
-            // 将整数值赋给 img_compression 中的像素
-            img_compression.at<uchar>(i, j) = static_cast<uchar>(compressedValue);
+            for (char bit : huff) {
+                // 将bit添加到缓冲区
+                buffer = (buffer << 1) | (bit == '1');
+                bit_count++;
+                // 如果缓冲区已满，将其写入文件
+                if (bit_count == 8) {
+                    fwrite(&buffer, sizeof(buffer), 1, file);
+                    buffer = 0;
+                    bit_count = 0;
+                }
+            }
         }
     }
-    //保存压缩后的图像
-    imwrite(imgpath+"_compression.jpg",img_compression);
+
+    // 如果缓冲区中还有剩余的bit，将其写入文件
+    if (bit_count > 0) {
+        buffer <<= (8 - bit_count);
+        fwrite(&buffer, sizeof(buffer), 1, file);
+    }
+    fclose(file);
 }
+
+
+//图像解压
 void imgDeCompression(const std::string& imgCompressionpath, const std::string& huffmanCodespath) {
     std::ifstream input(huffmanCodespath);
-    std::map< std::string,int> huffmanCodes;
+    std::map<int ,std::string> huffmanCodes;
+    std::map<int ,std::string> huffmanCodes2;
+    FILE *file =std::fopen(imgCompressionpath.c_str(), "rb");
+    //  读取图像的行数和列数
+    int rows; 
+    int cols; 
+    fread(&rows, sizeof(rows), 1, file);
+    fread(&cols,sizeof(cols),1,file); 
+    std::cout<<rows<<" "<<cols<<std::endl;
     //异常处理
     if (!input.is_open()) {
         std::cerr << "Error opening Huffman codes file." << std::endl;
         return;
     }
+    
     std::string line;
+
     //读取哈夫曼编码
     while (std::getline(input, line)) {
     std::istringstream iss(line);
@@ -322,35 +365,66 @@ void imgDeCompression(const std::string& imgCompressionpath, const std::string& 
     std::string value;
     if (std::getline(iss, key_1, ':') && std::getline(iss, value)) {
         key = std::stoi(key_1);  // 将字符串转换为整数
-        huffmanCodes.insert({ value,key });
+        huffmanCodes.insert({key,value});
         } 
     }
-    
-    //读取压缩图像
-    cv::Mat img_compression = cv::imread(imgCompressionpath,cv::IMREAD_GRAYSCALE);
-    //转灰度图
-    //cv::cvtColor(img_compression,img_compression,cv::COLOR_BGR2GRAY);
-    // 获取图像的行数和列数
-    int rows = img_compression.rows;
-    int cols = img_compression.cols;
     // 创建一个空白图像
     cv::Mat img_decompression(rows, cols, CV_8U, cv::Scalar(0));
-    for(int i=0;i<img_compression.rows;i++){
-        for(int j=0;j<img_compression.cols;j++){
-            int pixel = img_compression.at<uchar>(i,j);
-           // img_compression.at<uchar>(i, j) = huffmanCodes[pixel];
-            // 将像素值转换为二进制数
-            std::bitset<16> binaryNumber(pixel);
-            // 将二进制数转换为字符串
-            std::string binaryString = binaryNumber.to_string();
-            // 从哈夫曼编码中查找对应的像素值
-            int haff= huffmanCodes[binaryString];
-            img_decompression.at<uchar>(i, j) = haff;
+    HuffTree root=new HTNode;
+    root->data = 0;
+    root->LeftChild = NULL;
+    root->RightChild = NULL;
+    root->Parent = NULL;
+    //根据哈夫曼编码创建哈夫曼树
+    for(auto code: huffmanCodes){
+        insert(root,code.second,code.first);
+    }
+    //输出哈夫曼树
+    generateHuffmanCodes(root, "", huffmanCodes2);
+    for(auto code: huffmanCodes2){
+        std::cout<<code.first<<":"<<code.second<<std::endl;
+    }
+    std::vector<bool> bitVector;
+    //
+    
+    //逐个bit读取
+    char c;
+    // 读取文件中的每个字节
+    while (fread(&c, sizeof(c), 1, file) == 1) {
+        std::bitset<8> bits(c);
+        for (int i = 7; i >= 0; --i) {
+            bitVector.push_back(bits[i]);
         }
     }
+    HuffTree root2=root;
+
+    //根据哈夫曼编码解码
+    int vectorIndex = 0;
+
+    // 根据哈夫曼编码解码
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            while (root2->LeftChild || root2->RightChild) {
+                if (bitVector[vectorIndex] == 0) {
+                    root2 = root2->LeftChild;
+                } else {
+                    root2 = root2->RightChild;
+                }
+                ++vectorIndex;
+            }
+            // 找到叶子节点，将值存储到图像中
+            img_decompression.at<uchar>(i, j) = static_cast<uchar>(root2->data);
+            // 重置为根节点
+            root2 = root;
+        }
+    }
+
     cv::imwrite(imgCompressionpath+"_decompression.jpg",img_decompression);
     input.close();
+    fclose(file);
 }
+
+//图像压缩
 
 int main(){
     HuffTree root;
@@ -365,6 +439,6 @@ int main(){
     std::getline(std::cin, encodestring);
     encodeHaffTree(root,encodestring);
     decodeHaffTree(root);
-    imgCompression("../运行截图.png");
-    imgDeCompression("../运行截图.png_compression.jpg","../运行截图.png_huffmanCodes.txt");
+    imgCompression("../运行截图 .png");
+    imgDeCompression("../运行截图.png_Compress","../运行截图.png_huffmanCodes.txt");
 }
